@@ -1,0 +1,136 @@
+package pum.analyze;
+
+import java_cup.runtime.*;
+import pum.instruction.declaration.Declaration;
+import pum.instruction.declaration.DeclarationAffectation;
+import pum.tree.*;
+import pum.expression.*;
+import pum.expression.constant.*;
+import pum.expression.operation.binary.*;
+import pum.expression.operation.unary.*;
+import pum.instruction.builtinfunction.*;
+
+action code {:
+             :} ;
+
+parser code {:
+
+    public void report_error(String message, Object info) {
+
+        StringBuffer m = new StringBuffer() ;
+
+        if (info instanceof java_cup.runtime.Symbol) {
+            java_cup.runtime.Symbol s = ((java_cup.runtime.Symbol) info);
+
+            if (s.left >= 0) {
+                m.append("\tligne : " + (s.left + 1)) ;
+                if (s.right >= 0)
+                    m.append(" colonne : " + (s.right+1)) ;
+            }
+            else {
+                m.append("Error") ;
+            }
+
+        }
+        throw new RuntimeException("" + m) ;
+    }
+
+    public void report_fatal_error(String message, Object info) {
+        report_error(message, info);
+    }
+:};
+   
+/* ------------Declaration of Terminals and Non Terminals Section----------- */
+   
+/* Terminals (tokens returned by the scanner).  */
+
+terminal Symbol    SEMI, ACCLEFT, ACCRIGHT, INT, FLOAT, EQUAL, PLUS, MINUS, TIMES, DIVIDE, PARLEFT, PARRIGHT, PRINT, PRINTL, LT, LET, GT, GET, DEGAL, DIFFEGAL, LAND, LOR ;
+terminal String    IDF, CSTINT, CSTFLOAT, CSTSTR ;
+   
+/* Non terminals used in the grammar section.  */
+
+non terminal AbstractTree PROG, LINST, INST, DECL, FUNCTION;
+non terminal Expression EXP;
+
+/* ---- Precedences ---- */
+
+precedence left EQUAL;
+precedence left PLUS, MINUS;
+precedence left TIMES, DIVIDE;
+precedence left PARLEFT;
+
+/* ----------------------------Grammar Section-------------------- */
+ 
+start with PROG ;
+
+PROG    ::=     IDF:i ACCLEFT LINST:li ACCRIGHT
+                {: RESULT = new Program(ileft + 1, i, li) ; :}
+                ;
+
+LINST   ::=     LINST:li  INST:i
+                {: ((InstructionList)li).AddInstruction(i) ;
+                    RESULT = li; :}
+        |
+                INST:i
+                {: InstructionList il = new InstructionList(ileft + 1) ;
+                   il.AddInstruction(i) ;
+                   RESULT = il ; :}
+                ;
+
+INST    ::=     DECL:d SEMI
+                {: RESULT = d ; :}
+        |
+                DECL:d EQUAL EXP:e SEMI
+                {: RESULT = new DeclarationAffectation(dleft + 1, d, new Affectation(eleft + 1, ((Declaration)d).GetVar(), e)) ; :}
+        |
+                FUNCTION:f SEMI
+                {: RESULT = f; :}
+        |
+                EXP:e SEMI
+                {: RESULT = e; :}
+                ;
+
+DECL    ::=     INT:t IDF:i
+                {: RESULT = new Declaration(tleft + 1, new Variable(ileft + 1, i), "int") ; :}
+        |
+                FLOAT:t IDF:i
+                {: RESULT = new Declaration(tleft + 1, new Variable(ileft + 1, i), "float") ; :}
+                ;
+
+EXP         ::= PARLEFT EXP:e PARRIGHT
+                {: RESULT = e ; :}
+            |
+                EXP:l EQUAL EXP:r
+                {: RESULT = new Affectation(lleft + 1, l, r) ; :}
+            |
+                EXP:l PLUS EXP:r
+                {: RESULT = new Add(lleft + 1, l, r); :}
+            |
+                EXP:l MINUS EXP:r
+                {: RESULT = new Substract(lleft + 1, l, r); :}
+            |
+                EXP:l TIMES EXP:r
+                {: RESULT = new Multiply(lleft + 1, l, r); :}
+            |
+                EXP:l DIVIDE EXP:r
+                {: RESULT = new Divide(lleft + 1, l, r); :}
+            |
+                CSTINT:ci
+                {: RESULT = new Constant(cileft + 1, ci, "int"); :}
+            |
+                CSTFLOAT:cf
+                {: RESULT = new Constant(cfleft + 1, cf, "float"); :}
+            |
+                CSTSTR:cstr
+                {: RESULT = new Constant(cstrleft + 1, cstr, "string"); :}
+            |
+                IDF:i
+                {: RESULT = new Variable(ileft + 1, i); :}
+                ;
+
+FUNCTION    ::= PRINT PARLEFT EXP:e PARRIGHT
+                {: RESULT = new Print(eleft + 1, e); :}
+            |
+                PRINTL PARLEFT EXP:e PARRIGHT
+                {: RESULT = new PrintL(eleft + 1, e); :}
+                ;

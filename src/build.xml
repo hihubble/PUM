@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- You may freely edit this file. See commented blocks below for -->
+<!-- some examples of how to customize the build. -->
+<!-- (If you delete it and reopen the project it will be recreated.) -->
+<!-- By default, only the Clean and Build commands use this build script. -->
+<!-- Commands such as Run, Debug, and Test only use this build script if -->
+<!-- the Compile on Save feature is turned off for the project. -->
+<!-- You can turn off the Compile on Save (or Deploy on Save) setting -->
+<!-- in the project's Project Properties dialog box.-->
+<project name="PUM" default="-pre-compile" basedir="PUM">
+    <description>PUM Compiler</description>
+    <dirname property="module.PUM.basedir" file="${ant.file.PUM}"/>
+    <property name="excludes" value="**/*.cup,**/*.jflex,**/*.odt,**/*.pdf"/>
+    <property name="src" value="${module.PUM.basedir}/pum/analyze"/>
+    <target name="init-cup" depends="clean">
+        <condition property="cup.needed" >
+            <or>
+                <not>
+                    <available file="${src}/SyntaxicAnalyzer.java" />
+                </not>
+                <not>
+                    <available file="${src}/LexicalCodes.java" />
+                </not>
+                <uptodate targetfile="${src}/Grammar.cup"
+                          srcfile="${src}/SyntaxicAnalyzer.java">
+                </uptodate>
+            </or>
+        </condition>
+    </target>
+
+    <target name="cup" depends="init-cup" if="cup.needed" >
+        <java classname="java_cup.Main" fork="yes" failonerror="yes" >
+            <arg line="-symbols LexicalCodes -parser SyntaxicAnalyzer ${src}/Grammar.cup" />
+            <classpath>
+                <pathelement path="${java.class.path}:/lib/java-cup-11a.jar" />
+            </classpath>
+        </java>
+        <move file="SyntaxicAnalyzer.java" tofile="${src}/SyntaxicAnalyzer.java" />
+        <move file="LexicalCodes.java" tofile="${src}/LexicalCodes.java" />
+    </target>
+
+    <target name="init-lex" depends="cup" >
+        <condition property="lex.needed" >
+            <or>
+                <not>
+                    <available file="${src}/LexicalAnalyzer.java" />
+                </not>
+                <uptodate targetfile="${src}/LexicalAnalyzer.java"
+                          srcfile="${src}/LexicalAnalyzer.java" >
+                </uptodate>
+                <uptodate targetfile="${src}/LexicalTokens.jflex"
+                          srcfile="${src}/LexicalAnalyzer.java" >
+                </uptodate>
+            </or>
+        </condition>
+    </target>
+
+    <target name="lex" depends="init-lex" if="lex.needed" >
+        <java classname="jflex.Main" fork="yes" failonerror="yes" >
+            <arg line="${src}/LexicalTokens.jflex" />
+            <classpath>
+                <pathelement path="${java.class.path}:/lib/jflex-1.6.1.jar" />
+            </classpath>
+        </java>
+    </target>
+
+    <target name="-pre-compile"
+            depends = "lex"
+            description="Compile project." >
+        <echo message="compilation du code" />
+    </target>
+
+    <target name="clean">
+        <delete file="${src}/LexicalAnalyzer.java"/>
+        <delete file="${src}/SyntaxicAnalyzer.java"/>
+        <delete file="${src}/LexicalCodes.java"/>
+    </target>
+
+</project>
